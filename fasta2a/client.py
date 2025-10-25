@@ -7,6 +7,7 @@ from typing import Any
 import pydantic
 
 from .schema import (
+    AgentCard,
     GetTaskRequest,
     GetTaskResponse,
     Message,
@@ -17,6 +18,7 @@ from .schema import (
     StreamMessageRequest,
     StreamMessageResponse,
     a2a_request_ta,
+    agent_card_ta,
     send_message_request_ta,
     send_message_response_ta,
     stream_message_request_ta,
@@ -36,7 +38,29 @@ except ImportError as _import_error:
 class A2AClient:
     """A client for the A2A protocol."""
 
-    def __init__(self, base_url: str = 'http://localhost:8000', http_client: httpx.AsyncClient | None = None) -> None:
+    def __init__(
+        self,
+        agent: str | AgentCard = 'http://localhost:8000',
+        http_client: httpx.AsyncClient | None = None,
+        fetch_card: bool = False,
+        relative_card_path: str | None = None,
+    ) -> None:
+        if fetch_card and isinstance(agent, str):
+            if relative_card_path is None:
+                relative_card_path = "/.well-known/agent-card.json"
+            agent_url = agent.rstrip("/") + relative_card_path
+            response = httpx.get(agent_url)
+            response.raise_for_status()
+            agent = agent_card_ta.validate_python(response.json())
+
+        self.agent_card = agent if not isinstance(agent, str) else None
+        if isinstance(agent, str):
+            base_url = agent
+        else:
+            interfaces = agent.get('supported_interfaces')
+            if not interfaces:
+                raise ValueError('AgentCard has no supported interfaces to determine the base URL from.')
+            base_url = interfaces[0]['url']
         if http_client is None:
             self.http_client = httpx.AsyncClient(base_url=base_url)
         else:
