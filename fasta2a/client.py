@@ -47,8 +47,8 @@ class A2AClient:
     ) -> None:
         if fetch_card and isinstance(agent, str):
             if relative_card_path is None:
-                relative_card_path = "/.well-known/agent-card.json"
-            agent_url = agent.rstrip("/") + relative_card_path
+                relative_card_path = '/.well-known/agent-card.json'
+            agent_url = agent.rstrip('/') + relative_card_path
             response = httpx.get(agent_url)
             response.raise_for_status()
             agent = agent_card_ta.validate_python(response.json())
