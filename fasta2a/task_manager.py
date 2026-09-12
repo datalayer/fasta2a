@@ -133,7 +133,12 @@ class TaskManager:
 
         task = await self.storage.submit_task(context_id, message)
 
-        broker_params: TaskSendParams = {'id': task['id'], 'context_id': context_id, 'message': message}
+        broker_params: TaskSendParams = {
+            'id': task['id'],
+            'context_id': context_id,
+            'message': message,
+            'metadata': request['params'].get('metadata', {}),
+        }
         config = request['params'].get('configuration', {})
         history_length = config.get('history_length')
         if history_length is not None:
