@@ -65,15 +65,12 @@ class FastA2A(Starlette):
         exception_handlers: dict[Any, ExceptionHandler] | None = None,
         lifespan: Lifespan[FastA2A] | None = None,
     ):
-        if lifespan is None:
-            lifespan = _default_lifespan
-
         super().__init__(
             debug=debug,
             routes=routes,
             middleware=middleware,
             exception_handlers=exception_handlers,
-            lifespan=lifespan,
+            lifespan=_compose_lifespan(lifespan),
         )
 
         self.name = name or 'My Agent'
@@ -234,3 +231,21 @@ class FastA2A(Starlette):
 async def _default_lifespan(app: FastA2A) -> AsyncIterator[None]:
     async with app.task_manager:
         yield
+
+
+def _compose_lifespan(lifespan: Lifespan[FastA2A] | None) -> Lifespan[FastA2A]:
+    """Wrap a user-provided lifespan inside the default one.
+
+    The default lifespan enters the task manager (and therefore the broker), which is
+    required for the application to work, so it must run even when a custom lifespan
+    is supplied.
+    """
+    if lifespan is None:
+        return _default_lifespan
+
+    @asynccontextmanager
+    async def composed_lifespan(app: FastA2A) -> AsyncIterator[None]:
+        async with _default_lifespan(app), lifespan(app):
+            yield
+
+    return composed_lifespan
