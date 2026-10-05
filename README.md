@@ -182,6 +182,32 @@ class MyWorker(Worker[Context]):
 A `message/send` or `message/stream` that leaves a `required` extension inactive is refused with a
 `-32600` error whose `data.missing_required_extensions` names it, before any task is created.
 
+## Output modes
+
+The card says which media types the agent answers in: `default_output_modes` (and `default_input_modes`)
+on the application, `application/json` when unsaid, and each `Skill`'s own `output_modes`. A mode that is not
+a media type (`type/subtype`) is refused when the application is made.
+
+```python
+app = FastA2A(
+    storage=storage,
+    broker=broker,
+    default_input_modes=['text/plain'],
+    default_output_modes=['text/markdown', 'application/x-ipynb+json'],
+)
+```
+
+A client names the media types it accepts for a request in its configuration (`acceptedOutputModes`), and
+the worker reads them from its task's params, `accepted_output_modes`, absent when the client named none.
+What the worker gives in those modes goes in its artifacts, each part carrying its `media_type`:
+
+```python
+class MyWorker(Worker[Context]):
+    async def run_task(self, params: TaskSendParams) -> None:
+        if 'application/x-ipynb+json' in params.get('accepted_output_modes', []):
+            ...  # add an artifact with a part of that media type
+```
+
 ## Design
 
 **FastA2A** is built on top of [Starlette](https://www.starlette.io/), which means it's fully compatible

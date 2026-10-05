@@ -138,6 +138,9 @@ class TaskManager:
         history_length = config.get('history_length')
         if history_length is not None:
             broker_params['history_length'] = history_length
+        accepted_output_modes = config.get('accepted_output_modes')
+        if accepted_output_modes:
+            broker_params['accepted_output_modes'] = list(accepted_output_modes)
         metadata = request['params'].get('metadata')
         if metadata:
             broker_params['metadata'] = metadata
@@ -187,6 +190,9 @@ class TaskManager:
         history_length = config.get('history_length')
         if history_length is not None:
             broker_params['history_length'] = history_length
+        accepted_output_modes = config.get('accepted_output_modes')
+        if accepted_output_modes:
+            broker_params['accepted_output_modes'] = list(accepted_output_modes)
         metadata = request['params'].get('metadata')
         if metadata:
             broker_params['metadata'] = metadata
