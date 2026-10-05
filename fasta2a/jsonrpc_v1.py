@@ -60,11 +60,18 @@ def _array(value: Any) -> list[Any]:
     return cast(list[Any], value)
 
 
+# A part's `data` and any `metadata` are the application's, not the protocol's:
+# their `role` or `state` keys are values, copied as they are in both directions.
+_APPLICATION_KEYS = frozenset({'data', 'metadata'})
+
+
 def _enums_from_v1(value: Any) -> Any:
     if isinstance(value, dict):
         out: dict[str, Any] = {}
         for key, item in _object(value).items():
-            if key == 'role' and isinstance(item, str):
+            if key in _APPLICATION_KEYS:
+                out[key] = item
+            elif key == 'role' and isinstance(item, str):
                 out[key] = _ROLE_FROM_V1.get(item, item)
             elif key == 'state' and isinstance(item, str):
                 out[key] = _STATE_FROM_V1.get(item, item)
@@ -81,7 +88,9 @@ def to_v1(value: Any) -> Any:
     if isinstance(value, dict):
         out: dict[str, Any] = {}
         for key, item in _object(value).items():
-            if key == 'role' and isinstance(item, str):
+            if key in _APPLICATION_KEYS:
+                out[key] = item
+            elif key == 'role' and isinstance(item, str):
                 out[key] = _ROLE_TO_V1.get(item, item)
             elif key == 'state' and isinstance(item, str):
                 out[key] = _STATE_TO_V1.get(item, item)
@@ -109,6 +118,9 @@ def from_v1_request(request: Any) -> dict[str, Any] | None:
         return None
     params = _object(_enums_from_v1(dict(_object(envelope.get('params') or {}))))
     params.pop('tenant', None)
+    # ListTasks filters by `status`, a TaskState rather than a task's status object.
+    if method == 'ListTasks' and isinstance(params.get('status'), str):
+        params['status'] = _STATE_FROM_V1.get(params['status'], params['status'])
     configuration = params.get('configuration')
     if isinstance(configuration, dict):
         settings = _object(configuration)

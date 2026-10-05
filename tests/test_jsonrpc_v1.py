@@ -86,6 +86,50 @@ def test_an_answer_is_written_with_1_0_enums():
     }
 
 
+def test_application_data_and_metadata_keep_their_values_both_ways():
+    data = {'role': 'ROLE_AGENT', 'state': 'working', 'nested': [{'state': 'TASK_STATE_FAILED'}]}
+    metadata = {'role': 'agent', 'state': 'TASK_STATE_WORKING'}
+    request = from_v1_request(
+        {
+            'jsonrpc': '2.0',
+            'id': '1',
+            'method': 'SendMessage',
+            'params': {
+                'message': {
+                    'role': 'ROLE_USER',
+                    'messageId': 'm',
+                    'parts': [{'kind': 'data', 'data': data, 'metadata': metadata}],
+                    'metadata': metadata,
+                }
+            },
+        }
+    )
+    assert request is not None
+    message = request['params']['message']
+    assert message['role'] == 'user'
+    assert message['parts'][0]['data'] == data
+    assert message['parts'][0]['metadata'] == metadata
+    assert message['metadata'] == metadata
+    answer = to_v1(
+        {
+            'status': {'state': 'working'},
+            'artifacts': [{'parts': [{'kind': 'data', 'data': data, 'metadata': metadata}]}],
+            'metadata': metadata,
+        }
+    )
+    assert answer['status'] == {'state': 'TASK_STATE_WORKING'}
+    assert answer['artifacts'][0]['parts'][0] == {'kind': 'data', 'data': data, 'metadata': metadata}
+    assert answer['metadata'] == metadata
+
+
+def test_list_tasks_reads_its_status_filter_as_a_task_state():
+    request = from_v1_request(
+        {'jsonrpc': '2.0', 'id': '1', 'method': 'ListTasks', 'params': {'status': 'TASK_STATE_WORKING'}}
+    )
+    assert request is not None
+    assert request['params']['status'] == 'working'
+
+
 async def test_the_card_says_how_a_caller_authenticates():
     app = FastA2A(
         storage=InMemoryStorage(),

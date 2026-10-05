@@ -716,6 +716,9 @@ class TaskSendParams(TypedDict):
     history_length: NotRequired[int]
     """Number of recent messages to be retrieved."""
 
+    accepted_output_modes: NotRequired[list[str]]
+    """The media types the client accepts for the answer (`acceptedOutputModes`), when it named any."""
+
     metadata: NotRequired[dict[str, Any]]
     """Extension metadata."""
 
