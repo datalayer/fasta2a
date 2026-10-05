@@ -23,7 +23,9 @@ from .extensions import (
     parse_extensions_header,
     select_activated_extensions,
 )
+from .jsonrpc_v1 import from_v1_request, to_v1_json, to_v1_sse
 from .schema import (
+    A2ARequest,
     A2AResponse,
     AgentCapabilities,
     AgentCard,
@@ -31,6 +33,8 @@ from .schema import (
     AgentInterface,
     AgentProvider,
     InvalidRequestError,
+    SecurityRequirement,
+    SecurityScheme,
     SendMessageResponse,
     Skill,
     a2a_request_ta,
@@ -57,6 +61,8 @@ class FastA2A(Starlette):
         provider: AgentProvider | None = None,
         skills: list[Skill] | None = None,
         extensions: list[AgentExtension] | None = None,
+        security_schemes: dict[str, SecurityScheme] | None = None,
+        security_requirements: list[SecurityRequirement] | None = None,
         docs_url: str | None = '/docs',
         # Starlette
         debug: bool = False,
@@ -83,6 +89,10 @@ class FastA2A(Starlette):
         self.provider = provider
         self.skills = skills or []
         self.extensions = extensions or []
+        # What the card says a caller authenticates with. Said, not enforced:
+        # the server checks it in a middleware of its own (`middleware`).
+        self.security_schemes = security_schemes
+        self.security_requirements = security_requirements
         self.docs_url = docs_url
         # NOTE: For now, I don't think there's any reason to support any other input/output modes.
         self.default_input_modes = ['application/json']
@@ -121,6 +131,10 @@ class FastA2A(Starlette):
             )
             if self.provider is not None:
                 agent_card['provider'] = self.provider
+            if self.security_schemes:
+                agent_card['security_schemes'] = self.security_schemes
+            if self.security_requirements:
+                agent_card['security_requirements'] = self.security_requirements
             self._agent_card_json_schema = agent_card_ta.dump_json(agent_card, by_alias=True)
         return Response(content=self._agent_card_json_schema, media_type='application/json')
 
@@ -158,7 +172,32 @@ class FastA2A(Starlette):
         3. The server will send a "working" on the first chunk on `tasks/pushNotification/get`.
         """
         data = await request.body()
+        # A request with an A2A 1.0 method name is read as the method it names,
+        # and answered with 1.0's enums (see `jsonrpc_v1`).
+        try:
+            v1_request = from_v1_request(json.loads(data))
+        except ValueError:
+            v1_request = None
+        if v1_request is not None:
+            data = json.dumps(v1_request).encode()
         a2a_request = a2a_request_ta.validate_json(data)
+        response = await self._answer(request, a2a_request)
+        if v1_request is None:
+            return response
+        if isinstance(response, StreamingResponse):
+            return StreamingResponse(
+                to_v1_sse(response.body_iterator),  # type: ignore[arg-type]
+                media_type='text/event-stream',
+                headers={k: v for k, v in response.headers.items() if k.lower() != 'content-type'},
+            )
+        return Response(
+            content=to_v1_json(bytes(response.body)),
+            media_type='application/json',
+            headers={k: v for k, v in response.headers.items() if k.lower() not in ('content-length', 'content-type')},
+        )
+
+    async def _answer(self, request: Request, a2a_request: A2ARequest) -> Response:
+        """Answer one A2A request, as this library names its methods."""
 
         # Extensions are negotiated per request: the client names the ones it
         # wants in the `A2A-Extensions` header, the agent activates those it
