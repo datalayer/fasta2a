@@ -292,9 +292,11 @@ def _media_types(name: str, modes: Sequence[str] | None) -> list[str]:
     for mode in declared:
         if not isinstance(mode, str) or not _MEDIA_TYPE.fullmatch(mode):
             raise ValueError(f'{name}: {mode!r} is not a media type (type/subtype).')
-    if len(set(declared)) != len(declared):
+    # Media type names are case-insensitive: `TEXT/PLAIN` is `text/plain`.
+    if len({mode.lower() for mode in declared}) != len(declared):
         raise ValueError(f'{name} names a media type twice.')
     return declared
 
 
-_MEDIA_TYPE = re.compile(r'[a-z0-9][a-z0-9!#$&^_.+-]*/[a-z0-9][a-z0-9!#$&^_.+-]*', re.IGNORECASE)
+# ASCII only: with Unicode case folding, `[a-z]` under IGNORECASE also matches `ı` and `K`.
+_MEDIA_TYPE = re.compile(r'[a-z0-9][a-z0-9!#$&^_.+-]*/[a-z0-9][a-z0-9!#$&^_.+-]*', re.IGNORECASE | re.ASCII)

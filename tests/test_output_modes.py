@@ -116,6 +116,9 @@ async def test_unsaid_the_card_keeps_application_json():
         ([], 'at least one media type'),
         (['notebook'], 'is not a media type'),
         (['text/plain', 'text/plain'], 'twice'),
+        (['text/plain', 'TEXT/PLAIN'], 'twice'),
+        (['text/pla\u0131n'], 'is not a media type'),
+        (['te\u212axt/plain'], 'is not a media type'),
         ('text/plain', 'not one string'),
     ],
 )
