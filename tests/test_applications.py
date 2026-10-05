@@ -51,6 +51,38 @@ async def test_agent_card():
         )
 
 
+async def test_custom_lifespan_still_starts_task_manager():
+    """A user-provided lifespan must not replace the default one. See #37."""
+    called = False
+
+    @asynccontextmanager
+    async def user_lifespan(app: FastA2A):
+        nonlocal called
+        called = True
+        assert app.task_manager.is_running
+        yield
+
+    app = FastA2A(storage=InMemoryStorage(), broker=InMemoryBroker(), lifespan=user_lifespan)
+    async with create_test_client(app):
+        assert app.task_manager.is_running
+    assert called
+    assert not app.task_manager.is_running
+
+
+async def test_custom_lifespan_entering_task_manager_itself():
+    """A lifespan that enters the task manager explicitly keeps working."""
+
+    @asynccontextmanager
+    async def user_lifespan(app: FastA2A):
+        async with app.task_manager:
+            yield
+
+    app = FastA2A(storage=InMemoryStorage(), broker=InMemoryBroker(), lifespan=user_lifespan)
+    async with create_test_client(app):
+        assert app.task_manager.is_running
+    assert not app.task_manager.is_running
+
+
 class TestDocsEndpoint:
     async def test_docs_endpoint_default(self):
         app = FastA2A(storage=InMemoryStorage(), broker=InMemoryBroker())

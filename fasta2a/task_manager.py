@@ -107,8 +107,15 @@ class TaskManager:
     storage: Storage[Any]
 
     _aexit_stack: AsyncExitStack | None = field(default=None, init=False)
+    _depth: int = field(default=0, init=False)
 
     async def __aenter__(self):
+        # Entering an already-running task manager is a no-op, so that a lifespan which
+        # enters it explicitly can be nested inside the application's default lifespan.
+        self._depth += 1
+        if self._aexit_stack is not None:
+            return self
+
         self._aexit_stack = AsyncExitStack()
         await self._aexit_stack.__aenter__()
         await self._aexit_stack.enter_async_context(self.broker)
@@ -122,6 +129,9 @@ class TaskManager:
     async def __aexit__(self, exc_type: Any, exc_value: Any, traceback: Any):
         if self._aexit_stack is None:
             raise RuntimeError('TaskManager was not properly initialized.')
+        self._depth -= 1
+        if self._depth > 0:
+            return
         await self._aexit_stack.__aexit__(exc_type, exc_value, traceback)
         self._aexit_stack = None
 
