@@ -43,7 +43,7 @@ from typing import Any
 
 from fasta2a import FastA2A, Worker
 from fasta2a.broker import InMemoryBroker
-from fasta2a.schema import Artifact, Message, TaskIdParams, TaskSendParams, TextPart
+from fasta2a.schema import Artifact, Message, Part, TaskIdParams, TaskSendParams
 from fasta2a.storage import InMemoryStorage
 
 Context = list[Message]
@@ -63,8 +63,7 @@ class InMemoryWorker(Worker[Context]):
         # Call your agent here...
         message = Message(
             role='agent',
-            parts=[TextPart(text=f'Your context is {len(context) + 1} messages long.', kind='text')],
-            kind='message',
+            parts=[Part(text=f'Your context is {len(context) + 1} messages long.')],
             message_id=str(uuid.uuid4()),
         )
 

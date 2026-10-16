@@ -639,11 +639,12 @@
                 }
 
                 // Store task ID and context ID for polling
-                currentTaskId = result.result.id;
+                const task = result.result.task;
+                currentTaskId = task.id;
 
                 // Store context ID for future messages
-                if (result.result.contextId && !contextId) {
-                    contextId = result.result.contextId;
+                if (task.contextId && !contextId) {
+                    contextId = task.contextId;
                 }
 
                 // Add user message to chat with task ID
@@ -695,7 +696,7 @@
                     if (task.history && task.history.length > 0) {
                         const lastMessage = task.history[task.history.length - 1];
                         if (lastMessage.role === 'agent' && lastMessage.parts && lastMessage.parts.length > 0) {
-                            const textPart = lastMessage.parts.find(part => part.kind === 'text');
+                            const textPart = lastMessage.parts.find(part => part.text !== undefined);
                             if (textPart) {
                                 addMessage(textPart.text, 'agent', task.id);
                             }
